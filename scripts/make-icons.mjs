@@ -1,10 +1,15 @@
 // Generates the PWA icons so they are reproducible rather than binary blobs
 // with no source. Run with `npm run icons`.
 //
-// The mark is the app's own progress ring given the same treatment as its cards:
-// a cream arc with a thick ink outline and a hard ink shadow, on lime. Drawn by
-// hand into an RGBA buffer and written as a PNG with Node's zlib, so there is no
-// image dependency.
+// The mark is a clock and a pencil - hours, and logging them - drawn in the
+// app's own palette and given the same treatment as its cards: flat fills, a
+// thick ink outline and a hard ink shadow, on lime.
+//
+// Shapes are signed distance fields in unit space (0..1 across the icon), which
+// makes outlines and antialiasing fall out for free: expanding a shape by the
+// outline width is just subtracting from its distance, and coverage is that
+// distance clamped across one pixel. Rasterised into an RGBA buffer and written
+// as a PNG with Node's zlib, so there is no image dependency.
 
 import { deflateSync } from 'node:zlib'
 import { createHash } from 'node:crypto'
@@ -19,17 +24,140 @@ const OUT_DIR = join(ROOT, 'public')
 const LIME = [212, 242, 79]
 const INK = [22, 19, 15]
 const CREAM = [255, 253, 248]
+const AMBER = [255, 191, 73]
+const PINK = [255, 122, 168]
 
-const PROGRESS = 0.72 // fraction of the ring drawn
-const TAU = Math.PI * 2
+const OUTLINE = 0.021 // ink border around each shape
+const SHADOW = 0.026 // hard offset, down and to the right
 
-// Geometry as fractions of the icon's edge. The outermost extent is
-// RADIUS + STROKE / 2 + OFFSET = 0.376, inside the 0.4 maskable safe radius, so
-// Android can crop this to a circle without clipping the mark.
-const RADIUS = 0.275
-const STROKE = 0.125
-const OFFSET = 0.038
-const OUTLINE = 0.026 // ink border between the cream fill and the lime ground
+// Everything must stay inside a circle of radius 0.4 from the centre, or Android
+// clips the mark when it crops the icon to a circle.
+const SAFE_RADIUS = 0.4
+
+// --- signed distance fields, all in unit space ------------------------------
+
+function sdCircle(p, centre, radius) {
+  return Math.hypot(p[0] - centre[0], p[1] - centre[1]) - radius
+}
+
+/** Capsule: distance to a segment, minus a half-width. Used for the hands. */
+function sdSegment(p, a, b, halfWidth) {
+  const px = p[0] - a[0]
+  const py = p[1] - a[1]
+  const bx = b[0] - a[0]
+  const by = b[1] - a[1]
+  const t = Math.max(0, Math.min(1, (px * bx + py * by) / (bx * bx + by * by)))
+  return Math.hypot(px - bx * t, py - by * t) - halfWidth
+}
+
+/** Rotated rectangle, given its centre, half-extents and angle in radians. */
+function sdBox(p, centre, halfLength, halfWidth, angle) {
+  const cos = Math.cos(-angle)
+  const sin = Math.sin(-angle)
+  const dx = p[0] - centre[0]
+  const dy = p[1] - centre[1]
+  const qx = Math.abs(dx * cos - dy * sin) - halfLength
+  const qy = Math.abs(dx * sin + dy * cos) - halfWidth
+  return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0)
+}
+
+/**
+ * Exact distance to a triangle.
+ *
+ * The cheap version - the intersection of three half-planes - is wrong outside
+ * the shape near a vertex, and that matters here because the outline is drawn by
+ * offsetting the shape. At the pencil's sharp point the mitre runs away and
+ * throws a long ink spike past the tip. True distance gives a slightly rounded
+ * corner instead, which is what a sharpened pencil looks like anyway.
+ */
+function sdTriangle(p, a, b, c) {
+  const sub = (u, v) => [u[0] - v[0], u[1] - v[1]]
+  const dot = (u, v) => u[0] * v[0] + u[1] * v[1]
+  const cross = (u, v) => u[0] * v[1] - u[1] * v[0]
+
+  const edges = [sub(b, a), sub(c, b), sub(a, c)]
+  const offsets = [sub(p, a), sub(p, b), sub(p, c)]
+  // Winding, so the inside test works whichever way the vertices were given.
+  const winding = Math.sign(cross(edges[0], sub(a, c)))
+
+  let squared = Infinity
+  let inside = Infinity
+  for (let i = 0; i < 3; i++) {
+    const t = Math.max(0, Math.min(1, dot(offsets[i], edges[i]) / dot(edges[i], edges[i])))
+    const nearest = [offsets[i][0] - edges[i][0] * t, offsets[i][1] - edges[i][1] * t]
+    squared = Math.min(squared, dot(nearest, nearest))
+    inside = Math.min(inside, winding * cross(offsets[i], edges[i]))
+  }
+  return -Math.sqrt(squared) * Math.sign(inside)
+}
+
+// --- the mark ---------------------------------------------------------------
+
+const CLOCK = { centre: [0.42, 0.41], radius: 0.228 }
+
+// Pencil axis, running from the eraser up to the point.
+const TAIL = [0.55, 0.795]
+const POINT = [0.795, 0.55]
+const PENCIL_HALF_WIDTH = 0.046
+
+function buildShapes() {
+  const axisX = POINT[0] - TAIL[0]
+  const axisY = POINT[1] - TAIL[1]
+  const length = Math.hypot(axisX, axisY)
+  const ux = axisX / length
+  const uy = axisY / length
+  const angle = Math.atan2(uy, ux)
+  // Perpendicular, for the two corners where the tip meets the body.
+  const perpX = -uy
+  const perpY = ux
+
+  const along = (from, distance) => [from[0] + ux * distance, from[1] + uy * distance]
+
+  const tipLength = length * 0.3
+  const eraserLength = length * 0.17
+  const bodyLength = length - tipLength - eraserLength
+
+  const neck = along(TAIL, eraserLength + bodyLength)
+  const eraserCentre = along(TAIL, eraserLength / 2)
+  const bodyCentre = along(TAIL, eraserLength + bodyLength / 2)
+
+  const corner = (sign) => [
+    neck[0] + perpX * PENCIL_HALF_WIDTH * sign,
+    neck[1] + perpY * PENCIL_HALF_WIDTH * sign,
+  ]
+
+  return [
+    // Clock face, then its hands. The hands are already ink, so they take no
+    // outline - it would only thicken them.
+    { sdf: (p) => sdCircle(p, CLOCK.centre, CLOCK.radius), fill: CREAM, silhouette: true },
+    {
+      sdf: (p) => sdSegment(p, CLOCK.centre, [CLOCK.centre[0], CLOCK.centre[1] - 0.125], 0.023),
+      fill: INK,
+      outline: 0,
+    },
+    {
+      sdf: (p) =>
+        sdSegment(p, CLOCK.centre, [CLOCK.centre[0] + 0.101, CLOCK.centre[1] + 0.051], 0.023),
+      fill: INK,
+      outline: 0,
+    },
+
+    // Pencil, tail first so the tip draws over the body.
+    {
+      sdf: (p) => sdBox(p, eraserCentre, eraserLength / 2, PENCIL_HALF_WIDTH, angle),
+      fill: PINK,
+      silhouette: true,
+    },
+    {
+      sdf: (p) => sdBox(p, bodyCentre, bodyLength / 2, PENCIL_HALF_WIDTH, angle),
+      fill: AMBER,
+      silhouette: true,
+    },
+    { sdf: (p) => sdTriangle(p, corner(1), corner(-1), POINT), fill: CREAM, silhouette: true },
+  ]
+}
+
+// --- PNG encoding -----------------------------------------------------------
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n
@@ -76,6 +204,8 @@ function encodePng(width, height, rgba) {
   ])
 }
 
+// --- rasteriser -------------------------------------------------------------
+
 function mix(base, over, alpha) {
   if (alpha <= 0) return base
   return [
@@ -85,50 +215,32 @@ function mix(base, over, alpha) {
   ]
 }
 
-function drawIcon(size) {
+function drawIcon(size, shapes) {
   const rgba = Buffer.alloc(size * size * 4)
-  const centre = size / 2
-  const radius = size * RADIUS
-  const stroke = size * STROKE
-  const offset = size * OFFSET
-  const outline = size * OUTLINE
-  const end = PROGRESS * TAU
+  // Distances are in unit space; scaling to pixels is what keeps the softened
+  // edge one pixel wide at every icon size.
+  const cover = (distance) => Math.max(0, Math.min(1, 0.5 - distance * size))
 
-  /**
-   * Antialiased coverage of an arc band at a pixel. Every boundary - both radial
-   * edges and both butt caps - is reduced to a signed distance in pixels, so the
-   * whole shape softens by one pixel and the arc ends come out square rather
-   * than stepped. Caps use arc length, not radians, so they soften by the same
-   * width as the radial edges regardless of radius.
-   */
-  function coverage(x, y, shift, inset) {
-    const inner = radius - stroke / 2 + inset
-    const outer = radius + stroke / 2 - inset
-    const dx = x + 0.5 - (centre + shift)
-    const dy = y + 0.5 - (centre + shift)
-    const distance = Math.hypot(dx, dy)
-    if (distance > outer + 1 || distance < inner - 1) return 0
-
-    // Angle measured clockwise from twelve o'clock, matching the app's ring.
-    let angle = Math.atan2(dx, -dy)
-    if (angle < 0) angle += TAU
-
-    const edge = Math.min(
-      distance - inner,
-      outer - distance,
-      angle * distance - inset,
-      (end - angle) * distance - inset,
-    )
-    return Math.max(0, Math.min(1, edge + 0.5))
-  }
+  const silhouette = shapes.filter((shape) => shape.silhouette)
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
+      const p = [(x + 0.5) / size, (y + 0.5) / size]
+      const shifted = [p[0] - SHADOW, p[1] - SHADOW]
+
       let colour = LIME
-      // Hard shadow, then the outline, then the fill inset within it.
-      colour = mix(colour, INK, coverage(x, y, offset, 0))
-      colour = mix(colour, INK, coverage(x, y, 0, 0))
-      colour = mix(colour, CREAM, coverage(x, y, 0, outline))
+
+      // One hard shadow for the whole mark, from the union of its outlines.
+      const shadow = Math.min(...silhouette.map((shape) => shape.sdf(shifted)))
+      colour = mix(colour, INK, cover(shadow - OUTLINE))
+
+      // Then each shape in order: outline, then the fill inside it.
+      for (const shape of shapes) {
+        const distance = shape.sdf(p)
+        const outline = shape.outline ?? OUTLINE
+        if (outline > 0) colour = mix(colour, INK, cover(distance - outline))
+        colour = mix(colour, shape.fill, cover(distance))
+      }
 
       const at = (y * size + x) * 4
       rgba[at] = colour[0]
@@ -139,6 +251,25 @@ function drawIcon(size) {
   }
 
   return encodePng(size, size, rgba)
+}
+
+/** Furthest the artwork reaches from the centre, including outline and shadow. */
+function measureReach(shapes) {
+  const steps = 400
+  let reach = 0
+  for (let y = 0; y <= steps; y++) {
+    for (let x = 0; x <= steps; x++) {
+      const p = [x / steps, y / steps]
+      const shifted = [p[0] - SHADOW, p[1] - SHADOW]
+      const inked = shapes.some((shape) => {
+        const outline = shape.outline ?? OUTLINE
+        if (shape.sdf(p) - outline <= 0) return true
+        return shape.silhouette && shape.sdf(shifted) - outline <= 0
+      })
+      if (inked) reach = Math.max(reach, Math.hypot(p[0] - 0.5, p[1] - 0.5))
+    }
+  }
+  return reach
 }
 
 /**
@@ -163,9 +294,18 @@ function stampReferences(file, hashes) {
 
 mkdirSync(OUT_DIR, { recursive: true })
 
+const shapes = buildShapes()
+
+const reach = measureReach(shapes)
+console.log(`reach ${reach.toFixed(3)} against the ${SAFE_RADIUS} maskable safe radius`)
+if (reach > SAFE_RADIUS) {
+  console.error('Artwork exceeds the maskable safe zone and would be clipped when cropped to a circle.')
+  process.exit(1)
+}
+
 const hashes = {}
 for (const size of [192, 512]) {
-  const png = drawIcon(size)
+  const png = drawIcon(size, shapes)
   const file = join(OUT_DIR, `icon-${size}.png`)
   writeFileSync(file, png)
   hashes[size] = createHash('sha256').update(png).digest('hex').slice(0, 8)
