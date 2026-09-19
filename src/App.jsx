@@ -28,7 +28,7 @@ import {
   signOut,
 } from './auth/gis.js'
 import { applyTheme, watchSystemTheme } from './lib/theme.js'
-import { useSwipe } from './lib/useSwipe.js'
+import { useWeekSlide } from './lib/useWeekSlide.js'
 
 // Recharts is the only heavy dependency, so the chart streams in after the ring.
 const DailyBars = lazy(() => import('./components/DailyBars.jsx'))
@@ -81,7 +81,19 @@ export default function App() {
 
   // Attached to <main> rather than the whole app, so gestures inside the
   // settings sheet never page the week behind it.
-  const swipe = useSwipe({ onLeft: goNext, onRight: goPrev })
+  const { ref: paneRef, handlers: swipe, slide } = useWeekSlide({
+    onPrev: goPrev,
+    onNext: goNext,
+  })
+
+  // The arrows and the title move the week the same way a swipe does, so the
+  // motion says which direction you went however you asked for it.
+  // Today is any number of weeks away, so the step is spelled out: travel back
+  // if we are ahead of it, forwards if we are behind.
+  const goToday = useCallback(
+    () => slide(isFuture ? -1 : 1, () => setAnchor(new Date())),
+    [slide, isFuture],
+  )
 
   // index.html applies the stored theme before first paint; this keeps it in
   // step afterwards, and follows the OS while the setting is "Auto".
@@ -226,9 +238,9 @@ export default function App() {
       <Header
         anchor={anchor}
         weekStart={weekStart}
-        onPrev={goPrev}
-        onNext={goNext}
-        onToday={() => setAnchor(new Date())}
+        onPrev={() => slide(-1)}
+        onNext={() => slide(1)}
+        onToday={goToday}
         onSettings={() => setSettingsOpen(true)}
         busy={loading && Boolean(data)}
       />
@@ -251,7 +263,7 @@ export default function App() {
         </div>
       )}
 
-      <main className="main" {...swipe}>
+      <main className="main" ref={paneRef} {...swipe}>
         {!hasCalendars ? (
           <div className="card empty-state">
             <p className="empty-state-lead">Nothing is counted yet.</p>

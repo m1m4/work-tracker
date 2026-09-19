@@ -78,6 +78,10 @@ body {
   margin: 0;
   /* Stops a horizontal swipe turning into the browser's back gesture. */
   overscroll-behavior-x: contain;
+  /* A week being dragged or slid sideways must not widen the page. `clip`
+     rather than `hidden` so this stays a non-scrolling container and the
+     settings sheet keeps positioning against the viewport. */
+  overflow-x: clip;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--body);
@@ -112,6 +116,8 @@ button {
   gap: 18px;
   /* The browser keeps vertical scrolling; horizontal gestures are ours. */
   touch-action: pan-y;
+  /* The pane is moved by src/lib/useWeekSlide.js writing transform and opacity
+     straight onto this node; nothing here should set either. */
 }
 
 .card {
