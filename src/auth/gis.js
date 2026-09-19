@@ -93,6 +93,15 @@ export function isFresh(token) {
 }
 
 /**
+ * Whether a request would go through without opening a popup. Background
+ * refreshes check this first: they have no user gesture behind them, so a
+ * renewal would just be blocked, and the UI already offers a tap for that.
+ */
+export function hasFreshToken() {
+  return isFresh(readStoredToken())
+}
+
+/**
  * True once access has been granted at least once on this device. Tracked
  * separately from the token so that an expired or rejected token still shows
  * the main screen with a refresh prompt, rather than bouncing to Connect.

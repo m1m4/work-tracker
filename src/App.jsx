@@ -14,7 +14,13 @@ import {
   saveSettings,
   writeWeekCache,
 } from './lib/storage.js'
-import { getAccessToken, hasConnectedBefore, POPUP_BLOCKED, signOut } from './auth/gis.js'
+import {
+  getAccessToken,
+  hasConnectedBefore,
+  hasFreshToken,
+  POPUP_BLOCKED,
+  signOut,
+} from './auth/gis.js'
 import { applyTheme, watchSystemTheme } from './lib/theme.js'
 
 // Recharts is the only heavy dependency, so the chart streams in after the ring.
@@ -22,6 +28,15 @@ const DailyBars = lazy(() => import('./components/DailyBars.jsx'))
 
 // A blocked or dismissed popup is not an error - it means we need a tap.
 const NEEDS_GESTURE = new Set([POPUP_BLOCKED, 'popup_closed'])
+
+// Google has no way to push calendar changes to a page without a backend to
+// receive the webhook, so staying current means asking. The interval covers the
+// app being left open; coming back to the foreground is the case that actually
+// matters, since adding an event usually means switching to the calendar app and
+// back. The floor stops a flurry of focus events turning into a flurry of
+// requests.
+const POLL_MS = 45_000
+const MIN_GAP_MS = 20_000
 
 export default function App() {
   const [connected, setConnected] = useState(hasConnectedBefore)
@@ -64,11 +79,13 @@ export default function App() {
 
   // Guards against a slow fetch for an earlier week overwriting a newer one.
   const requestId = useRef(0)
+  const lastLoadAt = useRef(0)
 
   const load = useCallback(async () => {
     if (!connected || !calendarIds.length) return
 
     const id = ++requestId.current
+    lastLoadAt.current = Date.now()
     setLoading(true)
     // Clear any previous failure: it describes the last attempt, not this one,
     // and leaving it up makes an in-flight load look broken.
@@ -98,6 +115,36 @@ export default function App() {
     setData(readWeekCache(calendarIds, weekStart))
     load()
   }, [connected, calendarIds, weekStart, load])
+
+  // Keep the week current as events are added, without needing a manual tap.
+  useEffect(() => {
+    if (!connected || !hasCalendars) return undefined
+
+    const refreshIfDue = () => {
+      if (document.visibilityState !== 'visible') return
+      if (Date.now() - lastLoadAt.current < MIN_GAP_MS) return
+      // A background refresh has no user gesture behind it, so renewing an
+      // expired token would need a popup the browser will block. Surface the
+      // tap instead of firing a request that cannot succeed.
+      if (!hasFreshToken()) {
+        setNeedsRefresh(true)
+        return
+      }
+      load()
+    }
+
+    document.addEventListener('visibilitychange', refreshIfDue)
+    window.addEventListener('focus', refreshIfDue)
+    window.addEventListener('online', refreshIfDue)
+    const timer = setInterval(refreshIfDue, POLL_MS)
+
+    return () => {
+      document.removeEventListener('visibilitychange', refreshIfDue)
+      window.removeEventListener('focus', refreshIfDue)
+      window.removeEventListener('online', refreshIfDue)
+      clearInterval(timer)
+    }
+  }, [connected, hasCalendars, load])
 
   const loadCalendars = useCallback(async () => {
     setCalendarsStatus('loading')

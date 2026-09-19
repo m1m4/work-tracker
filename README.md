@@ -115,6 +115,21 @@ You can page backwards and forwards through weeks with the arrows; tap the week
 title to jump back to the current one. Future weeks show what is already
 scheduled, which doubles as a rough forecast.
 
+## Staying current
+
+Events you add to Google Calendar show up on their own. Google can only push
+calendar changes to a webhook, which needs a server to receive it, so a
+backend-free app has to ask instead:
+
+- **Returning to the app refreshes it.** This is the case that matters - adding
+  an event usually means switching to the calendar app and back.
+- **While it is open and in front, it re-checks every 45 seconds.**
+- Nothing is requested while the app is in the background, and two refreshes are
+  never fired within 20 seconds of each other.
+- If the access token has expired, no request is made at all. Renewing it needs
+  a popup, and a background refresh has no tap behind it - so the **Tap to
+  refresh** button appears instead.
+
 ## Commands
 
 ```bash
