@@ -1,8 +1,10 @@
 // Generates the PWA icons so they are reproducible rather than binary blobs
 // with no source. Run with `npm run icons`.
 //
-// Draws the same progress ring the app shows, rendered by hand into an RGBA
-// buffer and written as a PNG with Node's zlib. No image dependency needed.
+// The mark is the app's own progress ring given the same treatment as its cards:
+// a cream arc with a thick ink outline and a hard ink shadow, on lime. Drawn by
+// hand into an RGBA buffer and written as a PNG with Node's zlib, so there is no
+// image dependency.
 
 import { deflateSync } from 'node:zlib'
 import { writeFileSync, mkdirSync } from 'node:fs'
@@ -11,10 +13,21 @@ import { fileURLToPath } from 'node:url'
 
 const OUT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public')
 
-const BG = [79, 107, 237, 255] // --accent
-const TRACK = [255, 255, 255, 64]
-const RING = [255, 255, 255, 255]
-const PROGRESS = 0.68 // fraction of the ring drawn
+// Kept in step with styles.css.
+const LIME = [212, 242, 79]
+const INK = [22, 19, 15]
+const CREAM = [255, 253, 248]
+
+const PROGRESS = 0.72 // fraction of the ring drawn
+const TAU = Math.PI * 2
+
+// Geometry as fractions of the icon's edge. The outermost extent is
+// RADIUS + STROKE / 2 + OFFSET = 0.376, inside the 0.4 maskable safe radius, so
+// Android can crop this to a circle without clipping the mark.
+const RADIUS = 0.275
+const STROKE = 0.125
+const OFFSET = 0.038
+const OUTLINE = 0.026 // ink border between the cream fill and the lime ground
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n
@@ -61,51 +74,65 @@ function encodePng(width, height, rgba) {
   ])
 }
 
-/** Linear interpolation between two premultiplied-free RGBA colours. */
-function blend(base, over, alpha) {
-  const a = (over[3] / 255) * alpha
+function mix(base, over, alpha) {
+  if (alpha <= 0) return base
   return [
-    Math.round(base[0] * (1 - a) + over[0] * a),
-    Math.round(base[1] * (1 - a) + over[1] * a),
-    Math.round(base[2] * (1 - a) + over[2] * a),
-    255,
+    Math.round(base[0] * (1 - alpha) + over[0] * alpha),
+    Math.round(base[1] * (1 - alpha) + over[1] * alpha),
+    Math.round(base[2] * (1 - alpha) + over[2] * alpha),
   ]
 }
 
 function drawIcon(size) {
   const rgba = Buffer.alloc(size * size * 4)
   const centre = size / 2
-  const radius = size * 0.3
-  const stroke = size * 0.11
-  const inner = radius - stroke / 2
-  const outer = radius + stroke / 2
+  const radius = size * RADIUS
+  const stroke = size * STROKE
+  const offset = size * OFFSET
+  const outline = size * OUTLINE
+  const end = PROGRESS * TAU
+
+  /**
+   * Antialiased coverage of an arc band at a pixel. Every boundary - both radial
+   * edges and both butt caps - is reduced to a signed distance in pixels, so the
+   * whole shape softens by one pixel and the arc ends come out square rather
+   * than stepped. Caps use arc length, not radians, so they soften by the same
+   * width as the radial edges regardless of radius.
+   */
+  function coverage(x, y, shift, inset) {
+    const inner = radius - stroke / 2 + inset
+    const outer = radius + stroke / 2 - inset
+    const dx = x + 0.5 - (centre + shift)
+    const dy = y + 0.5 - (centre + shift)
+    const distance = Math.hypot(dx, dy)
+    if (distance > outer + 1 || distance < inner - 1) return 0
+
+    // Angle measured clockwise from twelve o'clock, matching the app's ring.
+    let angle = Math.atan2(dx, -dy)
+    if (angle < 0) angle += TAU
+
+    const edge = Math.min(
+      distance - inner,
+      outer - distance,
+      angle * distance - inset,
+      (end - angle) * distance - inset,
+    )
+    return Math.max(0, Math.min(1, edge + 0.5))
+  }
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const dx = x + 0.5 - centre
-      const dy = y + 0.5 - centre
-      const distance = Math.hypot(dx, dy)
+      let colour = LIME
+      // Hard shadow, then the outline, then the fill inset within it.
+      colour = mix(colour, INK, coverage(x, y, offset, 0))
+      colour = mix(colour, INK, coverage(x, y, 0, 0))
+      colour = mix(colour, CREAM, coverage(x, y, 0, outline))
 
-      let colour = BG
-
-      // Antialias the ring edges over roughly one pixel.
-      const edge = Math.min(distance - inner, outer - distance)
-      if (edge > -1) {
-        const coverage = Math.max(0, Math.min(1, edge + 0.5))
-
-        // Angle measured clockwise from twelve o'clock, matching the app.
-        let angle = Math.atan2(dx, -dy)
-        if (angle < 0) angle += Math.PI * 2
-        const filled = angle <= PROGRESS * Math.PI * 2
-
-        colour = blend(BG, filled ? RING : TRACK, coverage)
-      }
-
-      const offset = (y * size + x) * 4
-      rgba[offset] = colour[0]
-      rgba[offset + 1] = colour[1]
-      rgba[offset + 2] = colour[2]
-      rgba[offset + 3] = 255
+      const at = (y * size + x) * 4
+      rgba[at] = colour[0]
+      rgba[at + 1] = colour[1]
+      rgba[at + 2] = colour[2]
+      rgba[at + 3] = 255
     }
   }
 
