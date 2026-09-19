@@ -1,0 +1,808 @@
+/* Neobrutalist: thick borders, hard offset shadows, big type, flat colour.
+   Held to the usual guardrails - a three-colour palette, a plain body font, and
+   generous padding - because this style stops being fun the moment it stops
+   being readable. */
+
+:root {
+  /* Themes the native controls - checkboxes, spinners, scrollbars - to match
+     instead of forcing them light. */
+  color-scheme: light;
+
+  --paper: #fdf3e3;
+  --surface: #fffdf8;
+  --ink: #16130f;
+  --muted: #6d655a;
+  --line: #16130f;
+
+  /* Three accents, no more: lime carries progress, pink marks a peak, amber is
+     for warnings. */
+  --accent: #d4f24f;
+  --accent-ink: #16130f;
+  --hot: #ff7aa8;
+  --warn: #ffbf49;
+  --good: #3ec98a;
+  --danger: #e04b3c;
+  --track: #e6dcc9;
+  --bar: #bfe3f5;
+
+  /* Kept separate from --line: in dark mode the border goes light but the
+     shadow must stay dark, or every card wears a glowing slab. */
+  --shadow-color: var(--line);
+  --shadow: 5px 5px 0 var(--shadow-color);
+  --shadow-sm: 3px 3px 0 var(--shadow-color);
+  --shadow-press: 1px 1px 0 var(--shadow-color);
+  --border: 2.5px solid var(--line);
+  --radius: 14px;
+
+  --display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* data-theme is always a resolved "light" or "dark", set by src/lib/theme.js and
+   by the inline script in index.html. Never "system" - that is resolved before
+   it reaches the DOM, so this stylesheet needs one dark block rather than a
+   media query and an override that can drift apart. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Paper sits darker than surface so the cards lift off the page; the hard
+     shadow then reads as depth instead of as a second outline. */
+  --paper: #100f14;
+  --surface: #23202c;
+  --ink: #f6f1e6;
+  --muted: #a49d94;
+  /* Borders go light rather than black, or nothing would be visible. */
+  --line: #f6f1e6;
+  --shadow-color: #000;
+
+  --accent: #cdec4a;
+  --accent-ink: #17161c;
+  --hot: #ff7aa8;
+  --warn: #ffbf49;
+  --good: #46d998;
+  --danger: #ff6f5e;
+  --track: #35313f;
+  --bar: #4a6b80;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  /* Stops iOS bumping up font sizes when the phone is rotated. */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 3px solid var(--hot);
+  outline-offset: 2px;
+}
+
+/* Layout ------------------------------------------------------------------ */
+
+.app,
+.connect {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 16px calc(28px + env(safe-area-inset-bottom));
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.card {
+  background: var(--surface);
+  border: var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.card-title {
+  margin: 0 0 10px;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+/* A degree of tilt on the big blocks. Enough to look deliberate, not enough to
+   make anything hard to read. */
+.ring-card {
+  transform: rotate(-0.7deg);
+}
+
+.chart-card {
+  transform: rotate(0.5deg);
+}
+
+/* Header ------------------------------------------------------------------ */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: calc(14px + env(safe-area-inset-top)) 0 16px;
+}
+
+.header-title {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  padding: 4px 2px;
+  border: 0;
+  background: none;
+  text-align: center;
+}
+
+.header-title:disabled {
+  cursor: default;
+}
+
+.header-week {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.header-range {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Shown only while refreshing over existing numbers. */
+.header-spinner {
+  width: 11px;
+  height: 11px;
+  border: 2.5px solid var(--line);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  padding: 0;
+  border: var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: var(--shadow-press);
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  box-shadow: none;
+}
+
+/* Goal ring --------------------------------------------------------------- */
+
+.ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.ring-svg {
+  width: min(230px, 64vw);
+  height: auto;
+  display: block;
+}
+
+.ring-track {
+  stroke: var(--track);
+}
+
+.ring-value {
+  stroke: var(--accent);
+  /* Butt caps, not round: this style does not do soft edges. */
+  stroke-linecap: butt;
+  transition: stroke-dashoffset 500ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.ring-card.is-met .ring-value {
+  stroke: var(--good);
+}
+
+.ring-label {
+  position: absolute;
+  text-align: center;
+}
+
+.ring-hours {
+  font-family: var(--display);
+  font-size: 54px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  /* Keeps the number from reflowing as digits change width. */
+  font-variant-numeric: tabular-nums;
+}
+
+.ring-unit {
+  font-size: 26px;
+  margin-left: 1px;
+}
+
+.ring-goal {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.ring-footer {
+  margin-top: 14px;
+  text-align: center;
+}
+
+.ring-remaining {
+  display: inline-block;
+  padding: 5px 14px;
+  border: var(--border);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.ring-card.is-met .ring-remaining {
+  background: var(--good);
+}
+
+.ring-quip {
+  margin-top: 9px;
+  font-size: 14px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+/* Chart ------------------------------------------------------------------- */
+
+.chart {
+  margin: 0 -6px;
+}
+
+.chart-placeholder {
+  height: 226px;
+}
+
+/* Loader ------------------------------------------------------------------ */
+
+.loader {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  padding: 56px 0;
+}
+
+.loader-icons {
+  display: flex;
+  gap: 14px;
+}
+
+.tumbler {
+  width: 36px;
+  height: 36px;
+  animation: tumble 1100ms cubic-bezier(0.6, -0.3, 0.4, 1.4) infinite;
+}
+
+@keyframes tumble {
+  0% {
+    transform: rotate(0deg) translateY(0) scale(1);
+  }
+  25% {
+    transform: rotate(110deg) translateY(-15px) scale(1.12);
+  }
+  50% {
+    transform: rotate(190deg) translateY(2px) scale(0.88);
+  }
+  75% {
+    transform: rotate(290deg) translateY(-9px) scale(1.06);
+  }
+  100% {
+    transform: rotate(360deg) translateY(0) scale(1);
+  }
+}
+
+.loader-text {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* Event list -------------------------------------------------------------- */
+
+.events-summary {
+  cursor: pointer;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  list-style: none;
+}
+
+.events-summary::-webkit-details-marker {
+  display: none;
+}
+
+.events-summary::after {
+  content: ' \25be';
+}
+
+.events[open] .events-summary::after {
+  content: ' \25b4';
+}
+
+.events-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.events-item {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 2px dashed var(--track);
+}
+
+.events-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.events-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.events-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.events-hours {
+  flex: none;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Notices and empty states ------------------------------------------------ */
+
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 11px 14px;
+  border: var(--border);
+  border-radius: 12px;
+  background: var(--warn);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.notice.is-error {
+  background: var(--danger);
+  color: #fff;
+}
+
+.link-btn {
+  flex: none;
+  padding: 3px 0;
+  border: 0;
+  border-bottom: 2.5px solid currentColor;
+  background: none;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.empty {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.empty-state {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  text-align: center;
+  padding: 28px 20px;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.empty-state-lead {
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--ink) !important;
+}
+
+/* Buttons ----------------------------------------------------------------- */
+
+.btn {
+  min-height: 50px;
+  padding: 0 22px;
+  border: var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 700;
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+
+.btn:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: var(--shadow-press);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-big {
+  width: 100%;
+  min-height: 58px;
+  font-size: 18px;
+}
+
+.btn-quiet {
+  width: 100%;
+  border-color: var(--danger);
+  background: transparent;
+  box-shadow: none;
+  color: var(--danger);
+}
+
+.btn-quiet:active {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Connect screen ---------------------------------------------------------- */
+
+.connect {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  align-content: center;
+  min-height: 100svh;
+  text-align: center;
+}
+
+.connect-badge svg {
+  width: 62px;
+  height: 62px;
+  display: block;
+  transform: rotate(-6deg);
+}
+
+.connect-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+}
+
+.connect-copy {
+  margin: 0;
+  max-width: 32ch;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.connect-facts {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.connect-facts li::before {
+  content: '\2713  ';
+  font-weight: 700;
+  color: var(--good);
+}
+
+/* Settings sheet ---------------------------------------------------------- */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(0 0 0 / 45%);
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 480px;
+  max-height: 88svh;
+  background: var(--paper);
+  border: var(--border);
+  border-bottom: 0;
+  border-radius: 20px 20px 0 0;
+  animation: sheet-in 200ms cubic-bezier(0.2, 0.9, 0.3, 1.15);
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(18px);
+    opacity: 0;
+  }
+}
+
+.sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 10px 10px 20px;
+  border-bottom: var(--border);
+}
+
+.sheet-header h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+.sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding: 22px 20px;
+}
+
+.sheet-footer {
+  padding: 14px 20px calc(20px + env(safe-area-inset-bottom));
+  border-top: var(--border);
+}
+
+.sheet-footer .btn {
+  width: 100%;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.field {
+  display: grid;
+  gap: 9px;
+}
+
+.field-label {
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.field-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.field-input input {
+  flex: 1;
+  min-width: 0;
+  min-height: 50px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: var(--display);
+  /* 16px keeps iOS from zooming the viewport on focus. */
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.field-input input:focus {
+  outline: none;
+}
+
+.field-suffix {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.segmented button {
+  min-height: 42px;
+  border: 2.5px solid transparent;
+  border-radius: 9px;
+  background: none;
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.segmented button.is-active {
+  border-color: var(--line);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.calendars {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.calendars li + li .calendar {
+  border-top: 2px dashed var(--track);
+}
+
+.calendar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.calendar input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  accent-color: var(--accent);
+}
+
+.calendar-dot {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+}
+
+.calendar-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet,
+  .tumbler,
+  .header-spinner {
+    animation: none;
+  }
+
+  .ring-value {
+    transition: none;
+  }
+
+  .btn,
+  .icon-btn {
+    transition: none;
+  }
+}

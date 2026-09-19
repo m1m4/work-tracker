@@ -1,0 +1,236 @@
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Header from './components/Header.jsx'
+import GoalRing from './components/GoalRing.jsx'
+import EventList from './components/EventList.jsx'
+import Settings from './components/Settings.jsx'
+import ConnectScreen from './components/ConnectScreen.jsx'
+import Loader from './components/Loader.jsx'
+import { addWeeks, WEEK_STARTS_ON, weekBounds, weekTotals } from './lib/hours.js'
+import { listCalendars, listEventsForCalendars } from './api/calendar.js'
+import {
+  clearWeekCache,
+  loadSettings,
+  readWeekCache,
+  saveSettings,
+  writeWeekCache,
+} from './lib/storage.js'
+import { getAccessToken, hasConnectedBefore, POPUP_BLOCKED, signOut } from './auth/gis.js'
+import { applyTheme, watchSystemTheme } from './lib/theme.js'
+
+// Recharts is the only heavy dependency, so the chart streams in after the ring.
+const DailyBars = lazy(() => import('./components/DailyBars.jsx'))
+
+// A blocked or dismissed popup is not an error - it means we need a tap.
+const NEEDS_GESTURE = new Set([POPUP_BLOCKED, 'popup_closed'])
+
+export default function App() {
+  const [connected, setConnected] = useState(hasConnectedBefore)
+  const [connecting, setConnecting] = useState(false)
+  const [connectError, setConnectError] = useState(null)
+
+  const [settings, setSettings] = useState(loadSettings)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  const [anchor, setAnchor] = useState(() => new Date())
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [needsRefresh, setNeedsRefresh] = useState(false)
+  const [error, setError] = useState(null)
+
+  const [calendars, setCalendars] = useState([])
+  const [calendarsStatus, setCalendarsStatus] = useState('idle')
+  const [calendarsError, setCalendarsError] = useState(null)
+
+  const { start: weekStart, end: weekEnd } = useMemo(
+    () => weekBounds(anchor, WEEK_STARTS_ON),
+    [anchor],
+  )
+
+  const isFuture = useMemo(
+    () => weekStart > weekBounds(new Date(), WEEK_STARTS_ON).start,
+    [weekStart],
+  )
+
+  const { calendarIds, theme } = settings
+  const hasCalendars = calendarIds.length > 0
+
+  // index.html applies the stored theme before first paint; this keeps it in
+  // step afterwards, and follows the OS while the setting is "Auto".
+  useEffect(() => {
+    applyTheme(theme)
+    if (theme !== 'system') return undefined
+    return watchSystemTheme(() => applyTheme('system'))
+  }, [theme])
+
+  // Guards against a slow fetch for an earlier week overwriting a newer one.
+  const requestId = useRef(0)
+
+  const load = useCallback(async () => {
+    if (!connected || !calendarIds.length) return
+
+    const id = ++requestId.current
+    setLoading(true)
+    // Clear any previous failure: it describes the last attempt, not this one,
+    // and leaving it up makes an in-flight load look broken.
+    setNeedsRefresh(false)
+    setError(null)
+    try {
+      const events = await listEventsForCalendars(calendarIds, weekStart, weekEnd)
+      const totals = weekTotals(events, weekStart, weekEnd)
+      if (id !== requestId.current) return
+
+      writeWeekCache(calendarIds, weekStart, totals)
+      setData({ ...totals, fetchedAt: Date.now() })
+      setNeedsRefresh(false)
+      setError(null)
+    } catch (err) {
+      if (id !== requestId.current) return
+      if (NEEDS_GESTURE.has(err.code)) setNeedsRefresh(true)
+      else setError(err.message || 'Could not load your calendar.')
+    } finally {
+      if (id === requestId.current) setLoading(false)
+    }
+  }, [connected, calendarIds, weekStart, weekEnd])
+
+  // Paint whatever is cached for this week first, then revalidate.
+  useEffect(() => {
+    if (!connected) return
+    setData(readWeekCache(calendarIds, weekStart))
+    load()
+  }, [connected, calendarIds, weekStart, load])
+
+  const loadCalendars = useCallback(async () => {
+    setCalendarsStatus('loading')
+    setCalendarsError(null)
+    try {
+      setCalendars(await listCalendars())
+      setCalendarsStatus('ready')
+    } catch (err) {
+      setCalendarsStatus('error')
+      setCalendarsError(
+        NEEDS_GESTURE.has(err.code)
+          ? 'Reconnect to Google to load your calendars.'
+          : err.message || 'Could not load your calendars.',
+      )
+    }
+  }, [])
+
+  useEffect(() => {
+    if (connected && settingsOpen && calendarsStatus === 'idle') loadCalendars()
+  }, [connected, settingsOpen, calendarsStatus, loadCalendars])
+
+  async function handleConnect() {
+    setConnecting(true)
+    setConnectError(null)
+    try {
+      await getAccessToken()
+      setConnected(true)
+      // Nothing can be counted until calendars are chosen, so go straight there.
+      setSettingsOpen(true)
+    } catch (err) {
+      if (err.code !== 'popup_closed') setConnectError(err.message)
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  async function handleSignOut() {
+    await signOut()
+    clearWeekCache()
+    setConnected(false)
+    setSettingsOpen(false)
+    setData(null)
+    setCalendars([])
+    setCalendarsStatus('idle')
+    setNeedsRefresh(false)
+    setError(null)
+  }
+
+  function updateSettings(patch) {
+    setSettings((prev) => {
+      const next = { ...prev, ...patch }
+      saveSettings(next)
+      return next
+    })
+  }
+
+  if (!connected) {
+    return <ConnectScreen onConnect={handleConnect} connecting={connecting} error={connectError} />
+  }
+
+  return (
+    <div className="app">
+      <Header
+        anchor={anchor}
+        weekStart={weekStart}
+        onPrev={() => setAnchor((a) => addWeeks(a, -1))}
+        onNext={() => setAnchor((a) => addWeeks(a, 1))}
+        onToday={() => setAnchor(new Date())}
+        onSettings={() => setSettingsOpen(true)}
+        busy={loading && Boolean(data)}
+      />
+
+      {needsRefresh && (
+        <div className="notice">
+          <span>{data ? 'These numbers are from earlier.' : 'Google logged you out.'}</span>
+          <button className="link-btn" onClick={load}>
+            Tap to refresh
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="notice is-error">
+          <span>{error}</span>
+          <button className="link-btn" onClick={load}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      <main className="main">
+        {!hasCalendars ? (
+          <div className="card empty-state">
+            <p className="empty-state-lead">Nothing is counted yet.</p>
+            <p>Tell it which calendars are work and it will do the rest.</p>
+            <button className="btn btn-primary" onClick={() => setSettingsOpen(true)}>
+              Pick calendars
+            </button>
+          </div>
+        ) : loading && !data ? (
+          <Loader />
+        ) : (
+          <>
+            <GoalRing
+              hours={data?.total ?? 0}
+              goal={settings.goalHours}
+              weekStart={weekStart}
+              isFuture={isFuture}
+            />
+
+            {data && (
+              <Suspense fallback={<div className="card chart-placeholder" />}>
+                <DailyBars days={data.days} weekStart={weekStart} />
+              </Suspense>
+            )}
+
+            {data && <EventList events={data.counted} />}
+          </>
+        )}
+      </main>
+
+      {settingsOpen && (
+        <Settings
+          settings={settings}
+          calendars={calendars}
+          calendarsStatus={calendarsStatus}
+          calendarsError={calendarsError}
+          onChange={updateSettings}
+          onReloadCalendars={loadCalendars}
+          onClose={() => setSettingsOpen(false)}
+          onSignOut={handleSignOut}
+        />
+      )}
+    </div>
+  )
+}
