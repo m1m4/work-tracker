@@ -11,7 +11,7 @@ import { isTheme } from './theme.js'
 const SETTINGS_KEY = 'wt.settings'
 // Bumped when the cache entry shape changes, so old entries are simply missed
 // rather than misread.
-const CACHE_PREFIX = 'wt.week.v2.'
+const CACHE_PREFIX = 'wt.week.v3.'
 const CACHE_LIMIT = 12
 
 function read(key, fallback) {
@@ -75,12 +75,13 @@ export function readWeekCache(calendarIds, weekStart) {
   return entry
 }
 
-export function writeWeekCache(calendarIds, weekStart, { days, total, counted }) {
+export function writeWeekCache(calendarIds, weekStart, { days, total, counted, carriedIn }) {
   if (!calendarIds.length) return
   const stored = write(cacheKey(calendarIds, weekStart), {
     days,
     total,
     counted,
+    carriedIn,
     fetchedAt: Date.now(),
   })
   if (stored) pruneCache()

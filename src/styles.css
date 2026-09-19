@@ -327,6 +327,24 @@ button {
   color: var(--muted);
 }
 
+/* Spare hours moving between weeks. Small and quiet: it explains the headline
+   number rather than competing with it. */
+.ring-carry {
+  display: grid;
+  gap: 3px;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 2px dashed var(--track);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.ring-carry strong {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--ink);
+}
+
 /* Chart ------------------------------------------------------------------- */
 
 .chart {

@@ -120,6 +120,33 @@ the current one: there are no more hours to log against a week that is over. The
 weekend is derived from where the week starts rather than hardcoded, so with a
 Sunday start it means Friday and Saturday.
 
+## Spare hours
+
+Anything logged beyond **48 hours** in a single week is spare, and rolls into the
+following week where it counts towards that week's goal. A 52-hour week hands 4
+hours to the next one.
+
+The cap is measured against hours **actually logged that week**, never against
+hours carried in. Counting the carry-in would let one very long week cascade
+forwards indefinitely, each week inheriting enough to breach the cap on its own.
+So the ring below shows 54 1/2 h total but passes on only 4 1/4 h:
+
+```
+logged this week   52 1/4 h
+carried in          2 1/4 h  ->  ring shows 54 1/2 h
+carried out         4 1/4 h  (52 1/4 - 48, not 54 1/2 - 48)
+```
+
+Carry only ever moves one week forward; spare hours left unused do not keep
+travelling. The daily bars always show hours genuinely logged on each day, so
+when a carry is in play the bars will not sum to the headline number - the line
+under the ring says so.
+
+Showing this costs no extra requests: the week query simply spans the displayed
+week and the one before it, and both totals come out of the same event list.
+
+The threshold is `CARRY_OVER_ABOVE` in [`src/lib/hours.js`](src/lib/hours.js).
+
 ## Staying current
 
 Events you add to Google Calendar show up on their own. Google can only push

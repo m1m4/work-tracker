@@ -1,4 +1,4 @@
-import { formatHours, hoursParts } from '../lib/hours.js'
+import { carryOver, formatHours, hoursParts } from '../lib/hours.js'
 import { progressQuip } from '../lib/quips.js'
 
 // Hand-rolled SVG rather than a charting component: this is the first thing on
@@ -9,7 +9,13 @@ const STROKE = 22
 const RADIUS = (SIZE - STROKE) / 2 - 2
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
-export default function GoalRing({ hours, goal, weekStart, isFuture }) {
+export default function GoalRing({ logged, carriedIn = 0, goal, weekStart, isFuture }) {
+  // Hours carried in from an over-long previous week count towards this goal.
+  const hours = logged + carriedIn
+  // What this week will pass on is measured on its own logged hours, not the
+  // total, so a carry-in can never trigger a further carry-out.
+  const carriedOut = carryOver(logged)
+
   const progress = goal > 0 ? Math.min(hours / goal, 1) : 0
   const remaining = Math.max(goal - hours, 0)
   const met = goal > 0 && hours >= goal
@@ -68,6 +74,21 @@ export default function GoalRing({ hours, goal, weekStart, isFuture }) {
           {met ? 'Goal met' : `${formatHours(remaining)} to go`}
         </div>
         <div className="ring-quip">{quip}</div>
+
+        {(carriedIn > 0 || carriedOut > 0) && (
+          <div className="ring-carry">
+            {carriedIn > 0 && (
+              <span>
+                Includes <strong>{formatHours(carriedIn)}</strong> spare from last week
+              </span>
+            )}
+            {carriedOut > 0 && (
+              <span>
+                <strong>{formatHours(carriedOut)}</strong> spare rolls into next week
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </section>
   )

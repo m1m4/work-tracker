@@ -135,6 +135,33 @@ const FRACTIONS = [
 // the floating point drift from summing milliseconds.
 const EPSILON = 1 / 600
 
+// Hours logged beyond this in a single week spill into the next one, where they
+// count towards that week's goal.
+export const CARRY_OVER_ABOVE = 48
+
+/**
+ * Hours a week passes on to the next.
+ *
+ * Deliberately measured against hours actually logged that week, never against
+ * hours carried in - otherwise a single very long week would cascade forwards
+ * indefinitely, each week inheriting enough to breach the cap on its own.
+ */
+export function carryOver(loggedTotal) {
+  return Math.max(0, loggedTotal - CARRY_OVER_ABOVE)
+}
+
+/**
+ * Totals for the displayed week, plus whatever the week before passed on.
+ *
+ * Both weeks come out of a single event list spanning the pair, so showing the
+ * carry-in costs a wider query rather than a second round of requests.
+ */
+export function weekWithCarry(events, weekStart, weekEnd) {
+  const previousStart = addWeeks(weekStart, -1)
+  const previous = weekTotals(events, previousStart, weekStart)
+  return { ...weekTotals(events, weekStart, weekEnd), carriedIn: carryOver(previous.total) }
+}
+
 /** 7.5 -> "7½h", 8 -> "8h", 0.5 -> "½h", 6.3 -> "6.3h". */
 export function formatHours(h) {
   const whole = Math.floor(h + EPSILON)

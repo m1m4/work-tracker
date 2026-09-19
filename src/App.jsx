@@ -5,7 +5,13 @@ import EventList from './components/EventList.jsx'
 import Settings from './components/Settings.jsx'
 import ConnectScreen from './components/ConnectScreen.jsx'
 import Loader from './components/Loader.jsx'
-import { addWeeks, initialWeekAnchor, WEEK_STARTS_ON, weekBounds, weekTotals } from './lib/hours.js'
+import {
+  addWeeks,
+  initialWeekAnchor,
+  WEEK_STARTS_ON,
+  weekBounds,
+  weekWithCarry,
+} from './lib/hours.js'
 import { listCalendars, listEventsForCalendars } from './api/calendar.js'
 import {
   clearWeekCache,
@@ -100,8 +106,10 @@ export default function App() {
     setNeedsRefresh(false)
     setError(null)
     try {
-      const events = await listEventsForCalendars(calendarIds, weekStart, weekEnd)
-      const totals = weekTotals(events, weekStart, weekEnd)
+      // One query covering this week and the one before it: the previous week's
+      // logged total is what decides how many hours carry in.
+      const events = await listEventsForCalendars(calendarIds, addWeeks(weekStart, -1), weekEnd)
+      const totals = weekWithCarry(events, weekStart, weekEnd)
       if (id !== requestId.current) return
 
       writeWeekCache(calendarIds, weekStart, totals)
@@ -257,7 +265,8 @@ export default function App() {
         ) : (
           <>
             <GoalRing
-              hours={data?.total ?? 0}
+              logged={data?.total ?? 0}
+              carriedIn={data?.carriedIn ?? 0}
               goal={settings.goalHours}
               weekStart={weekStart}
               isFuture={isFuture}

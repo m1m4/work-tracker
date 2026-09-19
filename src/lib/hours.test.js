@@ -3,8 +3,10 @@ import {
   weekBounds,
   dayBounds,
   addWeeks,
+  carryOver,
   initialWeekAnchor,
   isCountable,
+  weekWithCarry,
   weekTotals,
   formatHours,
   formatDuration,
@@ -214,6 +216,50 @@ describe('weekTotals', () => {
     const { start, end } = weekBounds(new Date(2026, 2, 8), SUNDAY)
     const shift = timed(at(2026, 3, 8, 0), at(2026, 3, 9, 0))
     expect(weekTotals([shift], start, end).total).toBe(23)
+  })
+})
+
+describe('carry-over', () => {
+  it('passes on only the hours above the cap', () => {
+    expect(carryOver(52)).toBe(4)
+    expect(carryOver(48)).toBe(0)
+    expect(carryOver(40)).toBe(0)
+    expect(carryOver(48.25)).toBe(0.25)
+  })
+
+  // Week of Sun 2026-03-08, with the week before it running Sun 2026-03-01.
+  const anchor = new Date(2026, 2, 8)
+  const bounds = weekBounds(anchor, SUNDAY)
+
+  const longDays = (month, days, hours) =>
+    days.map((d) => timed(at(2026, month, d, 8), at(2026, month, d, 8 + hours)))
+
+  it('carries a long previous week into this one', () => {
+    // 6 x 9h = 54h the week before, so 6h spills over.
+    const events = longDays(3, [1, 2, 3, 4, 5, 6], 9)
+    expect(weekWithCarry(events, bounds.start, bounds.end).carriedIn).toBe(6)
+  })
+
+  it('carries nothing from a previous week inside the cap', () => {
+    const events = longDays(3, [2, 3, 4, 5, 6], 8) // 40h
+    expect(weekWithCarry(events, bounds.start, bounds.end).carriedIn).toBe(0)
+  })
+
+  it('leaves the displayed week totals untouched by the carry', () => {
+    const events = [
+      ...longDays(3, [1, 2, 3, 4, 5, 6], 9), // previous week, 54h
+      ...longDays(3, [9, 10], 5), // this week, 10h
+    ]
+    const result = weekWithCarry(events, bounds.start, bounds.end)
+    expect(result.total).toBe(10)
+    expect(result.carriedIn).toBe(6)
+    expect(result.counted).toHaveLength(2)
+  })
+
+  it('ignores weeks further back than the one immediately before', () => {
+    // A huge week two weeks ago must not reach this one.
+    const events = longDays(2, [22, 23, 24, 25, 26, 27], 10)
+    expect(weekWithCarry(events, bounds.start, bounds.end).carriedIn).toBe(0)
   })
 })
 
