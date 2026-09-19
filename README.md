@@ -111,6 +111,14 @@ Two deliberate choices worth knowing:
 The collapsible list under the chart shows every event that was counted, so a
 total you disagree with can be traced without leaving the app.
 
+The daily bars are shaded by how hard the day was - pale blue for a quiet one
+through lime and amber to pink for a brutal one - so the shape of a week reads
+before the numbers do. The scale is a full day's work, taken as your weekly goal
+spread over five days, and it stretches only if a day went past that. It is
+deliberately not the week's own range: normalising to the busiest day would
+paint a two-hour Tuesday scarlet on a quiet week. Today is the bar with the
+heavy outline.
+
 You can page between weeks with the arrows or by **swiping left and right**, and
 tap the week title to jump back to the current one. Future weeks show what is
 already scheduled, which doubles as a rough forecast.

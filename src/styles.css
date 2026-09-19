@@ -23,7 +23,15 @@
   --good: #3ec98a;
   --danger: #e04b3c;
   --track: #e6dcc9;
-  --bar: #bfe3f5;
+
+  /* The daily bars are shaded by how hard the day was. The ramp is built from
+     the three accents plus a cold blue rather than four new colours, so the
+     palette does not grow: quiet blue, working lime, long amber, brutal pink.
+     See src/lib/heat.js for where the thresholds come from. */
+  --heat-1: #bfe3f5;
+  --heat-2: #d9f26b;
+  --heat-3: #ffbf49;
+  --heat-4: #ff7aa8;
 
   /* Kept separate from --line: in dark mode the border goes light but the
      shadow must stay dark, or every card wears a glowing slab. */
@@ -62,7 +70,13 @@
   --good: #46d998;
   --danger: #ff6f5e;
   --track: #35313f;
-  --bar: #4a6b80;
+
+  /* Same ramp, lifted off a dark surface. The cold end has to stay clearly
+     bluer than the card behind it or a light day reads as an empty one. */
+  --heat-1: #4e7f9c;
+  --heat-2: #b6d94a;
+  --heat-3: #eaa62f;
+  --heat-4: #ff6e9f;
 }
 
 * {

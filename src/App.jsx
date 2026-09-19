@@ -287,7 +287,7 @@ export default function App() {
 
             {data && (
               <Suspense fallback={<div className="card chart-placeholder" />}>
-                <DailyBars days={data.days} weekStart={weekStart} />
+                <DailyBars days={data.days} weekStart={weekStart} goal={settings.goalHours} />
               </Suspense>
             )}
 
