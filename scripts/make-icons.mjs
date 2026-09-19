@@ -27,12 +27,20 @@ const CREAM = [255, 253, 248]
 const AMBER = [255, 191, 73]
 const PINK = [255, 122, 168]
 
-const OUTLINE = 0.021 // ink border around each shape
-const SHADOW = 0.026 // hard offset, down and to the right
+// The mark is composed in a comfortable design space and then shrunk about the
+// centre. Android crops a maskable icon to a circle (or a squircle, depending on
+// the launcher), and artwork that merely scrapes inside the safe zone sits
+// tangent to that edge and reads as cropped even when it technically is not.
+const SCALE = 0.86
 
-// Everything must stay inside a circle of radius 0.4 from the centre, or Android
-// clips the mark when it crops the icon to a circle.
+const OUTLINE = 0.021 * SCALE // ink border around each shape
+const SHADOW = 0.026 * SCALE // hard offset, down and to the right
+
+// The spec guarantees only a circle of radius 0.4 from the centre survives the
+// crop. MAX_REACH is deliberately well inside that, to leave a visible ring of
+// background all the way round rather than to scrape past the limit.
 const SAFE_RADIUS = 0.4
+const MAX_REACH = 0.35
 
 // --- signed distance fields, all in unit space ------------------------------
 
@@ -292,14 +300,28 @@ function stampReferences(file, hashes) {
   console.log(`stamped ${file}`)
 }
 
+/**
+ * Shrinks a shape about the centre of the icon. Uniform scaling of a signed
+ * distance field is exact: sample the un-scaled point, then scale the distance
+ * back, so outlines and antialiasing stay correct.
+ */
+function scaleShape(shape) {
+  return {
+    ...shape,
+    sdf: (p) => shape.sdf([0.5 + (p[0] - 0.5) / SCALE, 0.5 + (p[1] - 0.5) / SCALE]) * SCALE,
+  }
+}
+
 mkdirSync(OUT_DIR, { recursive: true })
 
-const shapes = buildShapes()
+const shapes = buildShapes().map(scaleShape)
 
 const reach = measureReach(shapes)
-console.log(`reach ${reach.toFixed(3)} against the ${SAFE_RADIUS} maskable safe radius`)
-if (reach > SAFE_RADIUS) {
-  console.error('Artwork exceeds the maskable safe zone and would be clipped when cropped to a circle.')
+console.log(
+  `reach ${reach.toFixed(3)} (target <= ${MAX_REACH}, spec safe radius ${SAFE_RADIUS})`,
+)
+if (reach > MAX_REACH) {
+  console.error('Artwork reaches too close to the mask edge; lower SCALE.')
   process.exit(1)
 }
 
