@@ -19,7 +19,9 @@ export default function DailyBars({ days, weekStart }) {
     const [dayStart] = dayBounds(weekStart, i)
     return {
       label: DAY_LABELS[dayStart.getDay()],
-      hours: Math.round(hours * 10) / 10,
+      // Deliberately unrounded: formatHours needs the exact value to recognise
+      // a quarter or a third, and rounding here would turn 6.25 into 6.3.
+      hours,
       today: isToday(dayStart),
     }
   })

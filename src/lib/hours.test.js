@@ -7,6 +7,7 @@ import {
   weekTotals,
   formatHours,
   formatDuration,
+  hoursParts,
 } from './hours.js'
 
 // Tests are pinned to America/New_York (see vite.config.js) so the DST cases are
@@ -190,11 +191,51 @@ describe('weekTotals', () => {
 })
 
 describe('formatting', () => {
-  it('formats hours to one decimal', () => {
-    expect(formatHours(12.5)).toBe('12.5h')
-    expect(formatHours(12)).toBe('12h')
+  it('formats whole hours without a fraction', () => {
     expect(formatHours(0)).toBe('0h')
-    expect(formatHours(7.049)).toBe('7h')
+    expect(formatHours(12)).toBe('12h')
+    // Close enough to whole that the fraction would be noise.
+    expect(formatHours(7.999999)).toBe('8h')
+  })
+
+  it('formats quarter hours as fractions', () => {
+    expect(formatHours(12.5)).toBe('12½h')
+    expect(formatHours(6.25)).toBe('6¼h')
+    expect(formatHours(6.75)).toBe('6¾h')
+  })
+
+  it('drops the leading zero for a bare fraction', () => {
+    expect(formatHours(0.5)).toBe('½h')
+    expect(formatHours(0.25)).toBe('¼h')
+    expect(formatHours(0.75)).toBe('¾h')
+  })
+
+  it('falls back to a decimal rather than rounding real minutes away', () => {
+    // 6h 18m is not a fraction we render, and snapping it to 6 1/4 would lose
+    // three minutes of actual work.
+    expect(formatHours(6.3)).toBe('6.3h')
+    expect(formatHours(7.1)).toBe('7.1h')
+  })
+
+  it('leaves thirds as decimals, since the display font has no glyph for them', () => {
+    expect(formatHours(6 + 1 / 3)).toBe('6.3h')
+    expect(formatHours(6 + 2 / 3)).toBe('6.7h')
+  })
+
+  it('formats a week of quarter-hour days as a fraction', () => {
+    const events = [2, 3, 4, 5, 6].map((d) => timed(at(2026, 3, d, 9), at(2026, 3, d, 16, 15)))
+    expect(formatHours(totalsFor(events).total)).toBe('36¼h')
+  })
+
+  it('splits the parts so the ring can scale the fraction down', () => {
+    expect(hoursParts(36.25)).toEqual({ value: '36', fraction: '¼', unit: 'h' })
+    expect(hoursParts(36)).toEqual({ value: '36', fraction: '', unit: 'h' })
+    expect(hoursParts(6.3)).toEqual({ value: '6.3', fraction: '', unit: 'h' })
+  })
+
+  it('reports an empty whole part for a bare fraction', () => {
+    // The ring renders this one full size - the fraction is the whole number.
+    expect(hoursParts(0.5)).toEqual({ value: '', fraction: '½', unit: 'h' })
   })
 
   it('formats durations as hours and minutes', () => {

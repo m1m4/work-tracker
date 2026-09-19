@@ -1,4 +1,4 @@
-import { formatHours } from '../lib/hours.js'
+import { formatHours, hoursParts } from '../lib/hours.js'
 import { progressQuip } from '../lib/quips.js'
 
 // Hand-rolled SVG rather than a charting component: this is the first thing on
@@ -16,8 +16,7 @@ export default function GoalRing({ hours, goal, weekStart, isFuture }) {
   const percent = Math.round(progress * 100)
   const quip = progressQuip(hours, goal, weekStart, isFuture)
 
-  // "35.3h" splits so the unit can sit smaller next to the number.
-  const [value, unit] = [formatHours(hours).replace(/h$/, ''), 'h']
+  const { value, fraction, unit } = hoursParts(hours)
 
   return (
     <section className={met ? 'card ring-card is-met' : 'card ring-card'}>
@@ -53,6 +52,11 @@ export default function GoalRing({ hours, goal, weekStart, isFuture }) {
         <div className="ring-label">
           <div className="ring-hours">
             {value}
+            {/* A fraction with no whole part is the whole number, so it keeps
+                full size; alongside digits it scales down. */}
+            {fraction && (
+              <span className={value ? 'ring-fraction' : undefined}>{fraction}</span>
+            )}
             <span className="ring-unit">{unit}</span>
           </div>
           <div className="ring-goal">of {formatHours(goal)}</div>

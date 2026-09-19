@@ -101,10 +101,35 @@ export function weekTotals(events, weekStart, weekEnd) {
   return { days, total: days.reduce((a, b) => a + b, 0), counted }
 }
 
-/** 12.5 -> "12.5h", 12 -> "12h". */
+// Calendar events land on neat boundaries far more often than not, and "6.3h"
+// is both uglier and less exact than "6¼h" for the same 6h 15m.
+//
+// Quarters only. Thirds would cover 20-minute events, but ⅓ and ⅔ live in the
+// Number Forms block, which Space Grotesk does not carry - they fall back to
+// another face and render as visibly mismatched glyphs mid-number. Anything
+// without a fraction here keeps its decimal.
+const FRACTIONS = [
+  { value: 1 / 4, glyph: '¼' },
+  { value: 1 / 2, glyph: '½' },
+  { value: 3 / 4, glyph: '¾' },
+]
+
+// Six seconds. Tight enough that nothing is mislabelled, loose enough to absorb
+// the floating point drift from summing milliseconds.
+const EPSILON = 1 / 600
+
+/** 7.5 -> "7½h", 8 -> "8h", 0.5 -> "½h", 6.3 -> "6.3h". */
 export function formatHours(h) {
-  const rounded = Math.round(h * 10) / 10
-  return `${rounded}h`
+  const whole = Math.floor(h + EPSILON)
+  const remainder = h - whole
+
+  if (remainder < EPSILON) return `${whole}h`
+
+  const fraction = FRACTIONS.find((f) => Math.abs(remainder - f.value) < EPSILON)
+  // No clean fraction: keep the decimal rather than rounding real minutes away.
+  if (!fraction) return `${Math.round(h * 10) / 10}h`
+
+  return whole ? `${whole}${fraction.glyph}h` : `${fraction.glyph}h`
 }
 
 /** 12.5 -> "12h 30m", for the per-event list where precision reads better. */
@@ -115,4 +140,16 @@ export function formatDuration(h) {
   if (!hours) return `${minutes}m`
   if (!minutes) return `${hours}h`
   return `${hours}h ${minutes}m`
+}
+
+/**
+ * The same text formatHours produces, split so a caller can style the parts.
+ * The big ring needs this because the fraction glyph has to be scaled down to
+ * sit correctly next to full-size digits.
+ */
+export function hoursParts(h) {
+  const text = formatHours(h)
+  const index = text.search(/[¼½¾]/)
+  if (index === -1) return { value: text.slice(0, -1), fraction: '', unit: 'h' }
+  return { value: text.slice(0, index), fraction: text[index], unit: 'h' }
 }
