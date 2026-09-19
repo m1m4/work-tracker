@@ -5,7 +5,7 @@ import EventList from './components/EventList.jsx'
 import Settings from './components/Settings.jsx'
 import ConnectScreen from './components/ConnectScreen.jsx'
 import Loader from './components/Loader.jsx'
-import { addWeeks, WEEK_STARTS_ON, weekBounds, weekTotals } from './lib/hours.js'
+import { addWeeks, initialWeekAnchor, WEEK_STARTS_ON, weekBounds, weekTotals } from './lib/hours.js'
 import { listCalendars, listEventsForCalendars } from './api/calendar.js'
 import {
   clearWeekCache,
@@ -22,6 +22,7 @@ import {
   signOut,
 } from './auth/gis.js'
 import { applyTheme, watchSystemTheme } from './lib/theme.js'
+import { useSwipe } from './lib/useSwipe.js'
 
 // Recharts is the only heavy dependency, so the chart streams in after the ring.
 const DailyBars = lazy(() => import('./components/DailyBars.jsx'))
@@ -46,7 +47,7 @@ export default function App() {
   const [settings, setSettings] = useState(loadSettings)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  const [anchor, setAnchor] = useState(() => new Date())
+  const [anchor, setAnchor] = useState(initialWeekAnchor)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [needsRefresh, setNeedsRefresh] = useState(false)
@@ -68,6 +69,13 @@ export default function App() {
 
   const { calendarIds, theme } = settings
   const hasCalendars = calendarIds.length > 0
+
+  const goPrev = useCallback(() => setAnchor((a) => addWeeks(a, -1)), [])
+  const goNext = useCallback(() => setAnchor((a) => addWeeks(a, 1)), [])
+
+  // Attached to <main> rather than the whole app, so gestures inside the
+  // settings sheet never page the week behind it.
+  const swipe = useSwipe({ onLeft: goNext, onRight: goPrev })
 
   // index.html applies the stored theme before first paint; this keeps it in
   // step afterwards, and follows the OS while the setting is "Auto".
@@ -210,8 +218,8 @@ export default function App() {
       <Header
         anchor={anchor}
         weekStart={weekStart}
-        onPrev={() => setAnchor((a) => addWeeks(a, -1))}
-        onNext={() => setAnchor((a) => addWeeks(a, 1))}
+        onPrev={goPrev}
+        onNext={goNext}
         onToday={() => setAnchor(new Date())}
         onSettings={() => setSettingsOpen(true)}
         busy={loading && Boolean(data)}
@@ -235,7 +243,7 @@ export default function App() {
         </div>
       )}
 
-      <main className="main">
+      <main className="main" {...swipe}>
         {!hasCalendars ? (
           <div className="card empty-state">
             <p className="empty-state-lead">Nothing is counted yet.</p>

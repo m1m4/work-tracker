@@ -76,6 +76,8 @@ html {
 
 body {
   margin: 0;
+  /* Stops a horizontal swipe turning into the browser's back gesture. */
+  overscroll-behavior-x: contain;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--body);
@@ -108,6 +110,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  /* The browser keeps vertical scrolling; horizontal gestures are ours. */
+  touch-action: pan-y;
 }
 
 .card {

@@ -111,9 +111,14 @@ Two deliberate choices worth knowing:
 The collapsible list under the chart shows every event that was counted, so a
 total you disagree with can be traced without leaving the app.
 
-You can page backwards and forwards through weeks with the arrows; tap the week
-title to jump back to the current one. Future weeks show what is already
-scheduled, which doubles as a rough forecast.
+You can page between weeks with the arrows or by **swiping left and right**, and
+tap the week title to jump back to the current one. Future weeks show what is
+already scheduled, which doubles as a rough forecast.
+
+On the **last two days of the week** the app opens on the week ahead rather than
+the current one: there are no more hours to log against a week that is over. The
+weekend is derived from where the week starts rather than hardcoded, so with a
+Sunday start it means Friday and Saturday.
 
 ## Staying current
 

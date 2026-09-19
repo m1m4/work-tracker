@@ -3,6 +3,7 @@ import {
   weekBounds,
   dayBounds,
   addWeeks,
+  initialWeekAnchor,
   isCountable,
   weekTotals,
   formatHours,
@@ -68,6 +69,32 @@ describe('addWeeks', () => {
     expect(addWeeks(MARCH_1, 1).getDate()).toBe(8)
     expect(addWeeks(MARCH_1, -1).getMonth()).toBe(1)
     expect(addWeeks(MARCH_1, -1).getDate()).toBe(22)
+  })
+})
+
+describe('initialWeekAnchor', () => {
+  // 2026-03-01 is a Sunday, so the week runs Sun 1st to Sat 7th.
+  const weekOf = (date) => weekBounds(initialWeekAnchor(date), SUNDAY).start.getDate()
+
+  it('opens on the current week on a working day', () => {
+    expect(weekOf(new Date(2026, 2, 1))).toBe(1) // Sunday
+    expect(weekOf(new Date(2026, 2, 2))).toBe(1) // Monday
+    expect(weekOf(new Date(2026, 2, 4))).toBe(1) // Wednesday
+    expect(weekOf(new Date(2026, 2, 5))).toBe(1) // Thursday
+  })
+
+  it('opens on the week ahead once the weekend arrives', () => {
+    expect(weekOf(new Date(2026, 2, 6))).toBe(8) // Friday
+    expect(weekOf(new Date(2026, 2, 7))).toBe(8) // Saturday
+  })
+
+  it('rolls into the next month when the weekend ends one', () => {
+    // Sat 2026-03-28 sits in the week beginning Sun 2026-03-22; the week ahead
+    // starts Sun 2026-03-29.
+    const anchor = initialWeekAnchor(new Date(2026, 2, 28))
+    const { start } = weekBounds(anchor, SUNDAY)
+    expect(start.getMonth()).toBe(2)
+    expect(start.getDate()).toBe(29)
   })
 })
 

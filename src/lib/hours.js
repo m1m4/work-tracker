@@ -38,6 +38,23 @@ export function addWeeks(date, n) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + n * 7)
 }
 
+// How many days at the end of the week count as the weekend. Derived from where
+// the week starts rather than hardcoded to a country: with a Sunday start, the
+// last two days are Friday and Saturday.
+const WEEKEND_DAYS = 2
+
+/**
+ * Which week to open on.
+ *
+ * Once the weekend arrives the current week is finished - there are no more
+ * hours to log against it - so the useful view is the week ahead. Tapping the
+ * header title still returns to the current week.
+ */
+export function initialWeekAnchor(now = new Date()) {
+  const dayOfWeek = (now.getDay() - WEEK_STARTS_ON + 7) % 7
+  return dayOfWeek >= 7 - WEEKEND_DAYS ? addWeeks(now, 1) : now
+}
+
 /**
  * Whether an event represents time actually worked.
  *
