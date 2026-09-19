@@ -7,11 +7,13 @@
 // image dependency.
 
 import { deflateSync } from 'node:zlib'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const OUT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public')
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const OUT_DIR = join(ROOT, 'public')
 
 // Kept in step with styles.css.
 const LIME = [212, 242, 79]
@@ -139,9 +141,36 @@ function drawIcon(size) {
   return encodePng(size, size, rgba)
 }
 
+/**
+ * Rewrites every reference to the icons with the current content hash.
+ *
+ * The filenames themselves stay put, but the URLs change whenever the artwork
+ * does - which is the only thing that reliably busts an installed app's icon.
+ * Android bakes the icon into a WebAPK and iOS caches apple-touch-icon by URL;
+ * neither re-fetches a path it has already seen, however the file changes on
+ * the server.
+ */
+function stampReferences(file, hashes) {
+  const before = readFileSync(file, 'utf8')
+  const after = before.replace(
+    /icon-(192|512)\.png(\?v=[a-f0-9]+)?/g,
+    (_match, size) => `icon-${size}.png?v=${hashes[size]}`,
+  )
+  if (after === before) return
+  writeFileSync(file, after)
+  console.log(`stamped ${file}`)
+}
+
 mkdirSync(OUT_DIR, { recursive: true })
+
+const hashes = {}
 for (const size of [192, 512]) {
+  const png = drawIcon(size)
   const file = join(OUT_DIR, `icon-${size}.png`)
-  writeFileSync(file, drawIcon(size))
+  writeFileSync(file, png)
+  hashes[size] = createHash('sha256').update(png).digest('hex').slice(0, 8)
   console.log(`wrote ${file}`)
 }
+
+stampReferences(join(OUT_DIR, 'manifest.webmanifest'), hashes)
+stampReferences(join(ROOT, 'index.html'), hashes)
