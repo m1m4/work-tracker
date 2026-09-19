@@ -111,9 +111,10 @@ Two deliberate choices worth knowing:
 The collapsible list under the chart shows every event that was counted, so a
 total you disagree with can be traced without leaving the app.
 
-The daily bars are shaded by how hard the day was - pale blue for a quiet one
-through lime and amber to pink for a brutal one - so the shape of a week reads
-before the numbers do. The scale is a full day's work, taken as your weekly goal
+The daily bars are shaded by how hard the day was - one colour, deepening as
+the hours pile up - so the shape of a week reads before the numbers do. In dark
+mode the ramp runs the other way, towards brighter rather than darker, because
+on a dark card a dark bar is a quiet one. The scale is a full day's work, taken as your weekly goal
 spread over five days, and it stretches only if a day went past that. It is
 deliberately not the week's own range: normalising to the busiest day would
 paint a two-hour Tuesday scarlet on a quiet week. Today is the bar with the

@@ -80,8 +80,8 @@ export default function DailyBars({ days, weekStart, goal }) {
                 {data.map((entry, i) => (
                   <Cell
                     key={i}
-                    // Cold blue for a light day up to pink for a brutal one, so
-                    // the shape of the week is readable before the numbers are.
+                    // One hue, deepening as the day fills up, so the shape of
+                    // the week is readable before the numbers are.
                     fill={`var(--heat-${heatLevel(entry.hours, reference) || 1})`}
                     stroke="var(--line)"
                     // Today wears the heavier outline.

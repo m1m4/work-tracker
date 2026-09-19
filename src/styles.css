@@ -24,14 +24,16 @@
   --danger: #e04b3c;
   --track: #e6dcc9;
 
-  /* The daily bars are shaded by how hard the day was. The ramp is built from
-     the three accents plus a cold blue rather than four new colours, so the
-     palette does not grow: quiet blue, working lime, long amber, brutal pink.
-     See src/lib/heat.js for where the thresholds come from. */
-  --heat-1: #bfe3f5;
-  --heat-2: #d9f26b;
-  --heat-3: #ffbf49;
-  --heat-4: #ff7aa8;
+  /* The daily bars are shaded by how hard the day was: one hue - the accent's
+     own yellow-green - getting darker as the hours pile up. Monochrome keeps
+     the chart from competing with the ring, and the four steps are spaced by
+     lightness so they stay distinguishable in a photo or a colourblind eye.
+     The darkest stops well short of --line, or a full day's bar would swallow
+     its own outline. See src/lib/heat.js for where the thresholds come from. */
+  --heat-1: #ecf5c2;
+  --heat-2: #d2ea66;
+  --heat-3: #95ae29;
+  --heat-4: #576713;
 
   /* Kept separate from --line: in dark mode the border goes light but the
      shadow must stay dark, or every card wears a glowing slab. */
@@ -71,12 +73,14 @@
   --danger: #ff6f5e;
   --track: #35313f;
 
-  /* Same ramp, lifted off a dark surface. The cold end has to stay clearly
-     bluer than the card behind it or a light day reads as an empty one. */
-  --heat-1: #4e7f9c;
-  --heat-2: #b6d94a;
-  --heat-3: #eaa62f;
-  --heat-4: #ff6e9f;
+  /* Same hue, running the other way. On a dark card, darker means quieter, so
+     a literal flip would give a one-hour Tuesday the loudest bar on the chart
+     and sink a full day into the background. What is preserved is the
+     intent - more hours, more intensity - not the direction of travel. */
+  --heat-1: #585f3a;
+  --heat-2: #859442;
+  --heat-3: #b6cd51;
+  --heat-4: #d9f075;
 }
 
 * {
