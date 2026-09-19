@@ -6,6 +6,7 @@
 // Every access is wrapped: localStorage throws in private mode and when the
 // quota is full, and losing a cached week is never worth crashing over.
 
+import { DEFAULT_CARRY_OVER_ABOVE } from './hours.js'
 import { isTheme } from './theme.js'
 
 const SETTINGS_KEY = 'wt.settings'
@@ -35,6 +36,7 @@ function write(key, value) {
 export function defaultSettings() {
   return {
     goalHours: 40,
+    carryOverAbove: DEFAULT_CARRY_OVER_ABOVE,
     calendarIds: [],
     theme: 'system',
   }
@@ -47,6 +49,8 @@ export function loadSettings() {
   const defaults = defaultSettings()
   return {
     goalHours: Number(stored.goalHours) > 0 ? Number(stored.goalHours) : defaults.goalHours,
+    carryOverAbove:
+      Number(stored.carryOverAbove) > 0 ? Number(stored.carryOverAbove) : defaults.carryOverAbove,
     calendarIds: Array.isArray(stored.calendarIds) ? stored.calendarIds : [],
     theme: isTheme(stored.theme) ? stored.theme : defaults.theme,
   }

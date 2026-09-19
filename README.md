@@ -122,9 +122,13 @@ Sunday start it means Friday and Saturday.
 
 ## Spare hours
 
-Anything logged beyond **48 hours** in a single week is spare, and rolls into the
-following week where it counts towards that week's goal. A 52-hour week hands 4
-hours to the next one.
+Anything logged beyond a weekly cap is spare, and rolls into the following week
+where it counts towards that week's goal. A 52-hour week against the default
+48-hour cap hands 4 hours to the next one.
+
+The cap is **Spare hours above** in Settings, next to the weekly goal, because
+the two numbers only mean anything relative to each other. Set it to 168 to
+switch carry-over off.
 
 The cap is measured against hours **actually logged that week**, never against
 hours carried in. Counting the carry-in would let one very long week cascade
@@ -144,8 +148,6 @@ under the ring says so.
 
 Showing this costs no extra requests: the week query simply spans the displayed
 week and the one before it, and both totals come out of the same event list.
-
-The threshold is `CARRY_OVER_ABOVE` in [`src/lib/hours.js`](src/lib/hours.js).
 
 ## Staying current
 

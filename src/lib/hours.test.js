@@ -227,6 +227,13 @@ describe('carry-over', () => {
     expect(carryOver(48.25)).toBe(0.25)
   })
 
+  it('honours a cap other than the default', () => {
+    expect(carryOver(52, 45)).toBe(7)
+    expect(carryOver(52, 60)).toBe(0)
+    // The way to switch carry-over off entirely.
+    expect(carryOver(100, 168)).toBe(0)
+  })
+
   // Week of Sun 2026-03-08, with the week before it running Sun 2026-03-01.
   const anchor = new Date(2026, 2, 8)
   const bounds = weekBounds(anchor, SUNDAY)
@@ -238,6 +245,12 @@ describe('carry-over', () => {
     // 6 x 9h = 54h the week before, so 6h spills over.
     const events = longDays(3, [1, 2, 3, 4, 5, 6], 9)
     expect(weekWithCarry(events, bounds.start, bounds.end).carriedIn).toBe(6)
+  })
+
+  it('applies the configured cap to the carry-in', () => {
+    const events = longDays(3, [1, 2, 3, 4, 5, 6], 9) // 54h
+    expect(weekWithCarry(events, bounds.start, bounds.end, 50).carriedIn).toBe(4)
+    expect(weekWithCarry(events, bounds.start, bounds.end, 60).carriedIn).toBe(0)
   })
 
   it('carries nothing from a previous week inside the cap', () => {

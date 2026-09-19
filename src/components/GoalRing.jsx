@@ -9,12 +9,12 @@ const STROKE = 22
 const RADIUS = (SIZE - STROKE) / 2 - 2
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
-export default function GoalRing({ logged, carriedIn = 0, goal, weekStart, isFuture }) {
+export default function GoalRing({ logged, carriedIn = 0, carryOverAbove, goal, weekStart, isFuture }) {
   // Hours carried in from an over-long previous week count towards this goal.
   const hours = logged + carriedIn
   // What this week will pass on is measured on its own logged hours, not the
   // total, so a carry-in can never trigger a further carry-out.
-  const carriedOut = carryOver(logged)
+  const carriedOut = carryOver(logged, carryOverAbove)
 
   const progress = goal > 0 ? Math.min(hours / goal, 1) : 0
   const remaining = Math.max(goal - hours, 0)

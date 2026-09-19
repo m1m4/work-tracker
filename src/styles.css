@@ -736,6 +736,12 @@ button {
   outline: none;
 }
 
+.field-hint {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
 .field-suffix {
   color: var(--muted);
   font-size: 13px;

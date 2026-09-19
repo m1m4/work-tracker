@@ -1,6 +1,47 @@
 import { useEffect, useState } from 'react'
 import { THEMES } from '../lib/theme.js'
 
+/**
+ * A number field that commits on blur.
+ *
+ * The value is held as a string while editing so the box can be empty
+ * mid-typing without snapping back; anything invalid reverts on blur rather
+ * than writing a nonsense setting.
+ */
+function HoursField({ label, hint, value, onCommit }) {
+  const [text, setText] = useState(String(value))
+
+  useEffect(() => {
+    setText(String(value))
+  }, [value])
+
+  function commit() {
+    const parsed = Number(text)
+    if (Number.isFinite(parsed) && parsed > 0) onCommit(Math.min(parsed, 168))
+    else setText(String(value))
+  }
+
+  return (
+    <label className="field">
+      <span className="field-label">{label}</span>
+      <div className="field-input">
+        <input
+          type="number"
+          inputMode="decimal"
+          min="1"
+          max="168"
+          step="0.5"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={commit}
+        />
+        <span className="field-suffix">hours</span>
+      </div>
+      {hint && <span className="field-hint">{hint}</span>}
+    </label>
+  )
+}
+
 export default function Settings({
   settings,
   calendars,
@@ -11,23 +52,6 @@ export default function Settings({
   onClose,
   onSignOut,
 }) {
-  // The goal is edited as a string so the field can be empty mid-typing without
-  // snapping back to a number.
-  const [goalText, setGoalText] = useState(String(settings.goalHours))
-
-  useEffect(() => {
-    setGoalText(String(settings.goalHours))
-  }, [settings.goalHours])
-
-  function commitGoal() {
-    const value = Number(goalText)
-    if (Number.isFinite(value) && value > 0) {
-      onChange({ goalHours: Math.min(value, 168) })
-    } else {
-      setGoalText(String(settings.goalHours))
-    }
-  }
-
   function toggleCalendar(id) {
     const selected = settings.calendarIds.includes(id)
     onChange({
@@ -54,22 +78,18 @@ export default function Settings({
         </div>
 
         <div className="sheet-body">
-          <label className="field">
-            <span className="field-label">Weekly goal</span>
-            <div className="field-input">
-              <input
-                type="number"
-                inputMode="decimal"
-                min="1"
-                max="168"
-                step="0.5"
-                value={goalText}
-                onChange={(e) => setGoalText(e.target.value)}
-                onBlur={commitGoal}
-              />
-              <span className="field-suffix">hours</span>
-            </div>
-          </label>
+          <HoursField
+            label="Weekly goal"
+            value={settings.goalHours}
+            onCommit={(goalHours) => onChange({ goalHours })}
+          />
+
+          <HoursField
+            label="Spare hours above"
+            hint="Anything logged past this rolls into the next week. Set it to 168 to turn that off."
+            value={settings.carryOverAbove}
+            onCommit={(carryOverAbove) => onChange({ carryOverAbove })}
+          />
 
           <div className="field">
             <span className="field-label">Look</span>

@@ -73,7 +73,7 @@ export default function App() {
     [weekStart],
   )
 
-  const { calendarIds, theme } = settings
+  const { calendarIds, theme, carryOverAbove } = settings
   const hasCalendars = calendarIds.length > 0
 
   const goPrev = useCallback(() => setAnchor((a) => addWeeks(a, -1)), [])
@@ -109,7 +109,7 @@ export default function App() {
       // One query covering this week and the one before it: the previous week's
       // logged total is what decides how many hours carry in.
       const events = await listEventsForCalendars(calendarIds, addWeeks(weekStart, -1), weekEnd)
-      const totals = weekWithCarry(events, weekStart, weekEnd)
+      const totals = weekWithCarry(events, weekStart, weekEnd, carryOverAbove)
       if (id !== requestId.current) return
 
       writeWeekCache(calendarIds, weekStart, totals)
@@ -123,7 +123,7 @@ export default function App() {
     } finally {
       if (id === requestId.current) setLoading(false)
     }
-  }, [connected, calendarIds, weekStart, weekEnd])
+  }, [connected, calendarIds, weekStart, weekEnd, carryOverAbove])
 
   // Paint whatever is cached for this week first, then revalidate.
   useEffect(() => {
@@ -267,6 +267,7 @@ export default function App() {
             <GoalRing
               logged={data?.total ?? 0}
               carriedIn={data?.carriedIn ?? 0}
+              carryOverAbove={carryOverAbove}
               goal={settings.goalHours}
               weekStart={weekStart}
               isFuture={isFuture}
